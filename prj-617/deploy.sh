@@ -8,6 +8,8 @@ gcloud functions deploy export-bq-to-gcs \
   --entry-point=main_handler \
   --trigger-http \
   --allow-unauthenticated \
-  --memory=1Gi \
+  --memory=4Gi \
   --timeout=600s \
-  --env-vars-file=env.yaml
+  --env-vars-file=env.yaml \
+  --min-instances=0 \
+  --max-instances=5

@@ -49,17 +49,46 @@ def export_bq_to_gcs():
     df.to_excel(excel_buffer, index=False, engine='openpyxl')
     excel_data = excel_buffer.getvalue()
 
-    # 5. GCS 업로드
+    # 5. GCS 클라이언트 및 버킷 초기화
     storage_client = storage.Client()
     bucket = storage_client.bucket(BUCKET_NAME)
     
-    # CSV 업로드
-    csv_blob = bucket.blob(blob_path + csv_filename)
-    csv_blob.upload_from_string(csv_data, content_type='text/csv; charset=utf-8')
+    # 6. 해당 경로의 기존 CSV, Excel 파일 모두 삭제
+    if blob_path:
+        logging.info(f"🔍 Searching for existing CSV/Excel files in path: {blob_path}")
+        prefix = blob_path.rstrip('/')  # 마지막 슬래시 제거하여 prefix로 사용
+        
+        deleted_count = 0
+        for blob in bucket.list_blobs(prefix=prefix + '/'):
+            blob_name = blob.name
+            # 정확히 해당 경로의 파일만 처리 (하위 디렉토리 제외)
+            # blob_path로 시작하고, 그 이후에 추가 경로 구분자가 없는 경우만
+            if blob_name.startswith(blob_path):
+                remaining_path = blob_name[len(blob_path):]
+                # 하위 디렉토리가 아닌 경우 (즉, 바로 파일인 경우)
+                if '/' not in remaining_path:
+                    if blob_name.endswith('.csv') or blob_name.endswith('.xlsx'):
+                        logging.info(f"🗑️  Deleting: {blob_name}")
+                        blob.delete()
+                        deleted_count += 1
+        
+        if deleted_count > 0:
+            logging.info(f"✅ Deleted {deleted_count} existing file(s) from path: {blob_path}")
+        else:
+            logging.info(f"ℹ️  No existing files found in path: {blob_path}")
     
-    # Excel 업로드
-    excel_blob = bucket.blob(blob_path + excel_filename)
+    # 7. CSV 업로드
+    csv_blob_path = blob_path + csv_filename
+    csv_blob = bucket.blob(csv_blob_path)
+    csv_blob.upload_from_string(csv_data, content_type='text/csv; charset=utf-8')
+    logging.info(f"✅ Uploaded CSV file: {csv_blob_path}")
+    
+    # 8. Excel 업로드
+    excel_blob_path = blob_path + excel_filename
+    excel_blob = bucket.blob(excel_blob_path)
     excel_blob.upload_from_string(excel_data, content_type='application/vnd.ms-excel')
+    logging.info(f"✅ Uploaded Excel file: {excel_blob_path}")
+
 
     return {"csv": csv_blob.name, "excel": excel_blob.name}
 

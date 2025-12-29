@@ -1,1 +1,12 @@
+# credentials
 env.yaml
+.env
+
+# results
+*.json
+*.csv
+*.jsonl
+
+# 
+.DS_Store
+__pycache__
